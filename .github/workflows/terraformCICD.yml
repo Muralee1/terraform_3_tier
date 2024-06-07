@@ -34,22 +34,34 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
 
-      - name: Delete Existing IAM Policy for EC2
+      - name: Detach and Delete Existing IAM Policy for EC2
         run: |
           POLICY_NAME="invoke_lambda_function_and_get_s3_object"
           POLICY_ARN=$(aws iam list-policies --query 'Policies[?PolicyName==`'$POLICY_NAME'`].Arn' --output text)
           if [ -n "$POLICY_ARN" ]; then
+            ATTACHED_ROLES=$(aws iam list-entities-for-policy --policy-arn $POLICY_ARN --query 'PolicyRoles[*].RoleName' --output text)
+            for ROLE in $ATTACHED_ROLES; do
+              aws iam detach-role-policy --role-name $ROLE --policy-arn $POLICY_ARN
+            done
             aws iam delete-policy --policy-arn $POLICY_ARN
           else
             echo "IAM Policy $POLICY_NAME does not exist."
           fi
 
-      - name: Delete Existing IAM Policy for CodeDeploy
+      - name: Detach and Delete Existing IAM Policy for CodeDeploy
         run: |
           POLICY_NAME="Policy_for_codeDeploy_EC2"
           POLICY_ARN=$(aws iam list-policies --query 'Policies[?PolicyName==`'$POLICY_NAME'`].Arn' --output text)
           if [ -n "$POLICY_ARN" ]; then
+            ATTACHED_ROLES=$(aws iam list-entities-for-policy --policy-arn $POLICY_ARN --query 'PolicyRoles[*].RoleName' --output text)
+            for ROLE in $ATTACHED_ROLES; do
+              aws iam detach-role-policy --role-name $ROLE --policy-arn $POLICY_ARN
+            done
             aws iam delete-policy --policy-arn $POLICY_ARN
           else
             echo "IAM Policy $POLICY_NAME does not exist."
@@ -74,3 +86,4 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
+
